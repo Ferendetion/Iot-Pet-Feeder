@@ -1,0 +1,204 @@
+#define BLYNK_TEMPLATE_ID "TMPL6OlvNvGD5" // Template ID
+#define BLYNK_TEMPLATE_NAME "Petfeed" //Template Name
+#define BLYNK_AUTH_TOKEN "LOXoNjnLPz40-aF3ZakD-A4Mkm7OuTnc" // Token
+
+#define BLYNK_PRINT Serial
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <Servo.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+
+// Servo declaration
+Servo servo1;
+
+// OLED display declaration
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+// Blynk authentication details
+char auth[] = "LOXoNjnLPz40-aF3ZakD-A4Mkm7OuTnc"; // Blynk Auth Token
+char ssid[] = "Lapis Pahlawan"; // WiFi Name
+char pass[] = "Bakpiamanis"; // WiFi Password
+
+// NTP Client to get time, i use indonesia time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", 25200, 60000); // GMT+7 (WIB) with 1 minute update
+
+// Alarm time
+int alarmHour = 20;
+int alarmMinute = 36;
+
+bool isScheduled = false; // For special Blynk button
+
+// Bitmap 
+const unsigned char catBitmap [] PROGMEM = {
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 1
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 2
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 3
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 4
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 5
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 6
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 7
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Baris 8
+    // Tambahkan baris hingga bitmap 128x64
+};
+// Fungsi untuk menampilkan gambar kucing sedang makan
+void displayCatEating() {
+    display.clearDisplay();
+    display.drawBitmap(0, 0, catBitmap, 128, 64, SSD1306_WHITE);
+    display.display();
+}
+
+// Blynk function for manual servo control
+BLYNK_WRITE(V2) {
+  int s1 = param.asInt(); 
+  servo1.write(s1);  // Manually control servo from Blynk app
+  Blynk.virtualWrite(V3, s1);  // Display servo position in Blynk app
+  
+  // Display "Kucing Sedang Makan..." text on OLED when servo moves
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor((SCREEN_WIDTH - 6 * 18) / 2, SCREEN_HEIGHT / 2 - 8);  // Center the text
+  display.println("Kucing Sedang Makan...");
+  display.display();
+  delay(3000); // Simulate cat eating delay
+  
+  // Clear the display after the eating simulation
+  display.clearDisplay();
+  display.display();
+}
+
+// Blynk function for scheduled servo control
+BLYNK_WRITE(V4) {
+  int buttonState = param.asInt(); 
+  
+  if (buttonState == 1) {
+    isScheduled = true;  
+    Blynk.virtualWrite(V3, "Alarm set"); 
+  } else {
+    isScheduled = false; 
+    Blynk.virtualWrite(V3, "Alarm deactivated");
+  }
+}
+
+void setup() {
+  // Initialize serial and Blynk
+  Serial.begin(9600);
+  Blynk.begin(auth, ssid, pass);
+
+  // Initialize I2C communication with custom SDA and SCL pins
+  Wire.begin(D1, D2);
+
+  // Setup Servo
+  servo1.attach(D5); // Connect to Pin D5 in NodeMCU
+
+  // Setup OLED
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x64 display
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Menampilkan pesan saat menyiapkan
+  String line1 = "Sedang Menyiapkan....";
+  String line2 = "Proses Tidak Akan Lama";
+  
+  int16_t x1, y1;
+  uint16_t w, h;
+  
+  // Menghitung posisi untuk line1
+  display.getTextBounds(line1, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor((SCREEN_WIDTH - w) / 2, 0);
+  display.println(line1);
+  
+  // Menghitung posisi untuk line2
+  display.getTextBounds(line2, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor((SCREEN_WIDTH - w) / 2, h + 10);
+  display.println(line2);
+
+  display.display();
+  delay(5000);
+
+  // Setup NTP Client
+  timeClient.begin(); 
+  timeClient.update(); 
+
+  delay(2000); // Splash screen delay
+
+  display.clearDisplay();
+}
+
+void loop() {
+  Blynk.run();
+  timeClient.update();
+
+  // Get current time and date
+  int currentHour = timeClient.getHours();
+  int currentMinute = timeClient.getMinutes();
+  int currentSecond = timeClient.getSeconds();
+  unsigned long epochTime = timeClient.getEpochTime();
+  struct tm *ptm = gmtime ((time_t *)&epochTime);
+  int currentDay = ptm->tm_mday;
+  int currentMonth = ptm->tm_mon + 1; // Months are 0-11 in struct tm
+  int currentYear = ptm->tm_year + 1900; // Years since 1900
+
+  // Clear display and set the layout
+  display.clearDisplay();
+  
+  // Display the cat's name "KITTY" on the top in center, shifted slightly to the left
+  display.setTextSize(2);
+  display.setCursor((SCREEN_WIDTH - (6 * 5)) / 2 - 10, 0);  // Shift to the left for better centering
+  display.println("KITTY");
+  
+  // Draw line separating sections
+  display.drawLine(0, 16, SCREEN_WIDTH, 16, SSD1306_WHITE); // Horizontal line below "KITTY"
+  display.drawLine(0, 48, SCREEN_WIDTH, 48, SSD1306_WHITE); // Horizontal line above the date
+
+  // Display current time (HH:MM:SS) in the middle, shifted to the left slightly for better centering
+  display.setTextSize(2);
+  display.setCursor((SCREEN_WIDTH - (6 * 8)) / 2 - 20, 24);  // Geser ke kiri lebih jauh
+  display.print(currentHour);
+  display.print(":");
+  if (currentMinute < 10) display.print("0");
+  display.print(currentMinute);
+  display.print(":");
+  if (currentSecond < 10) display.print("0");
+  display.print(currentSecond);
+
+  // Display the current date (DD-MM-YYYY) at the bottom, shifted left
+  display.setTextSize(1);
+  display.setCursor((SCREEN_WIDTH - (6 * 10)) / 2 - 10, 52); // Shift left for centering
+  display.print(currentDay);
+  display.print("-");
+  display.print(currentMonth);
+  display.print("-");
+  display.print(currentYear);
+
+  // Show everything on the display
+  display.display();
+
+  // Open servo at the scheduled time
+  if (isScheduled && currentHour == alarmHour && currentMinute == alarmMinute) {
+    servo1.write(180); // Open the servo at 180 degrees
+    displayCatEating(); // Menampilkan gambar kucing saat makan
+    delay(5000);  // Wait 5 seconds before closing
+    servo1.write(0);  // Close the servo (return to 0 degrees)
+    display.clearDisplay();
+    display.setCursor(0, 20);
+    display.println("Servo Closed!");
+    display.display();
+    delay(60000); // Prevent re-triggering for 1 minute
+    isScheduled = false; // Reset schedule after triggering
+    Blynk.virtualWrite(V4, 0); // Turn off the button in Blynk
+  }
+
+  delay(1000); // Update every second
+}
