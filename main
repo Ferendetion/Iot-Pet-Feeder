@@ -1,6 +1,6 @@
-#define BLYNK_TEMPLATE_ID "TMPL6OlvNvGD5" // Template ID
-#define BLYNK_TEMPLATE_NAME "Petfeed" //Template Name
-#define BLYNK_AUTH_TOKEN "LOXoNjnLPz40-aF3ZakD-A4Mkm7OuTnc" // Token
+#define BLYNK_TEMPLATE_ID "" // Template ID
+#define BLYNK_TEMPLATE_NAME "" //Template Name
+#define BLYNK_AUTH_TOKEN "" // Token
 
 #define BLYNK_PRINT Serial
 #include <ESP8266WiFi.h>
@@ -21,9 +21,9 @@ Servo servo1;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 // Blynk authentication details
-char auth[] = "LOXoNjnLPz40-aF3ZakD-A4Mkm7OuTnc"; // Blynk Auth Token
-char ssid[] = "Lapis Pahlawan"; // WiFi Name
-char pass[] = "Bakpiamanis"; // WiFi Password
+char auth[] = ""; // Blynk Auth Token
+char ssid[] = ""; // WiFi Name
+char pass[] = ""; // WiFi Password
 
 // NTP Client to get time, i use indonesia time
 WiFiUDP ntpUDP;
