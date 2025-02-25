@@ -163,7 +163,7 @@ void feedNow(String waktu) {
   Serial.print("feedNow() dipanggil untuk ");
   Serial.println(waktu);
 
-  // Buka servo (misalnya ke 180 derajat) selama 2 detik
+  // Buka Servo (misalnya ke 180 derajat) selama 2 detik
   servo1.write(180);
   Blynk.virtualWrite(V0, 180);
   Serial.println("Servo dibuka (180°) selama 2 detik...");
